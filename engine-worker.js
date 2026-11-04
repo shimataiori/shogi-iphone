@@ -6,8 +6,9 @@
 let mod = null;
 let waiters = [];
 
+const T0 = Date.now();
 function log(step) {
-  try { self.postMessage({ type: "log", step }); } catch {}
+  try { self.postMessage({ type: "log", step: "[+" + ((Date.now() - T0) / 1000).toFixed(1) + "s] " + step }); } catch {}
 }
 function fail(stage, err) {
   const detail = err && (err.stack || err.message) ? String(err.stack || err.message) : String(err);
@@ -65,25 +66,34 @@ async function init() {
     mod.FS.writeFile("/nn.bin", new Uint8Array(nnBuf));
     mod.FS.writeFile("/progress.bin", new Uint8Array(progBuf));
     mod.addMessageListener(line => {
+      if (!line.startsWith("info ")) log("line: " + line.slice(0, 200));
       checkWaiters(line);
       self.postMessage({ type: "line", line });
     });
   } catch (e) { fail("w4 仮想FS書込", e); return; }
   log("w4: 仮想FSへ評価関数を配置OK");
 
+  // エンジン本体の起動登録（wasm_keep_alive）は非同期で、未登録の間
+  // usi_command は「後で再送」を返し続け、再送間隔は指数的に伸びる。
+  // そのため、少し待ってから送り始め、応答があるまで定期的に再送する。
   try {
+    await new Promise(r => setTimeout(r, 3000));
+    log("w5: usi送信（最大90秒、10秒ごとに再送）");
     mod.postMessage("usi");
-    await waitFor("usiok", 20000);
-    log("w5: usiok 受信");
+    const usiTimer = setInterval(() => { log("w5r: usi再送"); mod.postMessage("usi"); }, 10000);
+    try { await waitFor("usiok", 90000); } finally { clearInterval(usiTimer); }
+    log("w5ok: usiok 受信");
     mod.postMessage("setoption name EvalDir value .");
     mod.postMessage("setoption name EvalFile value nn.bin");
     mod.postMessage("setoption name Threads value 2");
     mod.postMessage("setoption name USI_Hash value 128");
     mod.postMessage("setoption name BookFile value no_book");
+    log("w6: isready送信（最大90秒、15秒ごとに再送）");
     mod.postMessage("isready");
-    await waitFor("readyok", 30000);
-  } catch (e) { fail("w5 USIハンドシェイク", e); return; }
-  log("w6: readyok 受信");
+    const readyTimer = setInterval(() => { log("w6r: isready再送"); mod.postMessage("isready"); }, 15000);
+    try { await waitFor("readyok", 90000); } finally { clearInterval(readyTimer); }
+  } catch (e) { fail("w5/6 USIハンドシェイク", e); return; }
+  log("w7: readyok 受信");
   self.postMessage({ type: "ready" });
 }
 

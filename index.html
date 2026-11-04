@@ -89,12 +89,8 @@
   <div id="board"></div>
   <div class="handbar" id="handBottom"></div>
   <div class="navrow">
-    <button id="navRoot" aria-label="最初">|◀</button>
-    <button id="navPrev" aria-label="前へ">◀</button>
-    <button id="navNext" aria-label="次へ">▶</button>
-    <button id="navEnd" aria-label="最後">▶|</button>
-    <span id="moveLabel"></span>
-    <button id="flipBtn" style="margin-left:auto;">盤面反転</button>
+    <button id="newBtn">新しい研究</button>
+    <button id="saveBtn">名前を付けて保存</button>
   </div>
   <div class="small">現在局面 SFEN: <span id="sfenText" style="word-break:break-all;"></span></div>
 </div>
@@ -173,8 +169,11 @@
 <section class="card">
   <h2>研究ファイル</h2>
   <div class="row">
-    <button id="newBtn">新しい研究</button>
-    <button id="saveBtn">名前を付けて保存</button>
+    <button id="navRoot" aria-label="最初">|◀</button>
+    <button id="navPrev" aria-label="前へ">◀</button>
+    <button id="navNext" aria-label="次へ">▶</button>
+    <button id="navEnd" aria-label="最後">▶|</button>
+    <span id="moveLabel"></span>
   </div>
   <div id="sessionList"></div>
   <div class="row">
@@ -867,7 +866,6 @@ $("navRoot").addEventListener("click", () => jumpTo(treeRoot));
 $("navPrev").addEventListener("click", () => { if (current.parent) jumpTo(current.parent); });
 $("navNext").addEventListener("click", () => { if (current.children.length) jumpTo(current.children[0]); });
 $("navEnd").addEventListener("click", () => { let n = current; while (n.children.length) n = n.children[0]; jumpTo(n); });
-$("flipBtn").addEventListener("click", () => { flipped = !flipped; renderBoard(); });
 
 /* ================= エンジン（Web Worker + WASM） ================= */
 const engine = {

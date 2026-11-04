@@ -3,7 +3,7 @@
    そのためにはページが cross-origin isolated である必要がある。
    配信サーバが COOP/COEP ヘッダを付けない場合でも、この Service Worker が
    ナビゲーション応答へヘッダを付けて返す（HTTPS配信時のみ有効）。 */
-const CACHE = "shogi-iphone-proto-v1";
+const CACHE = "shogi-iphone-proto-v2";
 const ASSETS = [
   "./",
   "index.html",
@@ -11,11 +11,18 @@ const ASSETS = [
   "manifest.webmanifest",
   "engine/yaneuraou.js",
   "engine/yaneuraou.wasm",
+  "engine/yaneuraou.worker.js",
   "engine/eval/nn.bin",
   "engine/eval/progress.bin",
 ];
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // 1ファイルの取得失敗でインストール全体が失敗しないよう、個別にキャッシュする。
+  // （分離に必要なのは fetch ハンドラであり、キャッシュはオフライン用）
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    await Promise.allSettled(ASSETS.map(a => c.add(a)));
+    await self.skipWaiting();
+  })());
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(
@@ -24,20 +31,21 @@ self.addEventListener("activate", (e) => {
       .then(() => self.clients.claim())
   );
 });
+function withIsoHeaders(res) {
+  const headers = new Headers(res.headers);
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  headers.set("Cross-Origin-Embedder-Policy", "require-corp");
+  headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  return new Response(res.body, {
+    status: res.status, statusText: res.statusText, headers,
+  });
+}
 self.addEventListener("fetch", (e) => {
   if (e.request.mode === "navigate") {
     e.respondWith(
       fetch(e.request)
-        .then(res => {
-          const headers = new Headers(res.headers);
-          headers.set("Cross-Origin-Opener-Policy", "same-origin");
-          headers.set("Cross-Origin-Embedder-Policy", "require-corp");
-          headers.set("Cross-Origin-Resource-Policy", "same-origin");
-          return new Response(res.body, {
-            status: res.status, statusText: res.statusText, headers,
-          });
-        })
-        .catch(() => caches.match("index.html", { ignoreSearch: true }))
+        .then(withIsoHeaders)
+        .catch(() => caches.match("index.html", { ignoreSearch: true }).then(hit => hit && withIsoHeaders(hit)))
     );
     return;
   }

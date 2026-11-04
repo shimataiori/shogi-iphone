@@ -193,6 +193,7 @@
     </select></label>
   </div>
   <p class="small" id="engineInfo">エンジン: 読込中</p>
+  <p class="small" id="diagInfo"></p>
   <p class="small">評価関数: つようら王11mini（SFNN_ka2_4096_8_64_progress8、MIT License、© やねうら王プロジェクト）<br>
   エンジン本体: やねうら王（GPLv3）commit c1b80eaa を WebAssembly 化したもの。</p>
   <p class="small">未実装・制限: 打ち歩詰めの判定なし／着手時の王手・ピン等の完全な合法判定なし（Windows版と同じ）／
@@ -938,6 +939,15 @@ function setEngineStatus(cls, text){
   $("engineStatus").className = cls;
   $("engineStatusText").textContent = text;
 }
+function updateDiag(){
+  const el = $("diagInfo");
+  if (!el) return;
+  const sw = ("serviceWorker" in navigator)
+    ? (navigator.serviceWorker.controller ? "制御中" : "未制御") : "非対応";
+  el.textContent = "診断: 分離=" + (window.crossOriginIsolated ? "有効" : "無効") +
+    " / SharedArrayBuffer=" + (typeof SharedArrayBuffer !== "undefined" ? "あり" : "なし") +
+    " / ServiceWorker=" + sw;
+}
 function goCommandFromSettings(){
   if ($("thinkMode").value === "depth") return "go depth " + $("thinkDepth").value;
   return "go movetime " + $("thinkTime").value;
@@ -1262,17 +1272,34 @@ $("threadSel").addEventListener("change", () => {
   if (!restored) renderAll();
   renderSessionList();
   setStatus(restored ? "前回の研究を復元しました" : "研究を開始できます");
-  // Service Worker（キャッシュ + COOP/COEP付与）。未分離なら一度だけ再読込する
+  // Service Worker（キャッシュ + COOP/COEP付与）。
+  // 登録完了直後ではなく、SWが有効化されこのページが制御下に入った時点で
+  // 再読み込みする。初回は約9MBのキャッシュ作成に数秒かかるため、
+  // 登録直後の再読み込みでは分離が間に合わず失敗する。再読み込みは最大2回。
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-    navigator.serviceWorker.register("sw.js").then(() => {
-      if (!window.crossOriginIsolated && !sessionStorage.getItem("coi-tried")) {
-        sessionStorage.setItem("coi-tried", "1");
+    const coiTries = Number(sessionStorage.getItem("coi-tries") || "0");
+    const tryReload = () => {
+      if (window.crossOriginIsolated) return;
+      if (coiTries < 2) {
+        sessionStorage.setItem("coi-tries", String(coiTries + 1));
         location.reload();
       }
+    };
+    navigator.serviceWorker.register("sw.js").then(reg => {
+      if (window.crossOriginIsolated) return;
+      if (navigator.serviceWorker.controller) { tryReload(); return; }
+      const sw = reg.installing || reg.waiting || reg.active;
+      if (sw) {
+        if (sw.state === "activated") tryReload();
+        else sw.addEventListener("statechange", () => { if (sw.state === "activated") tryReload(); });
+      }
     }).catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", tryReload);
   }
+  updateDiag();
   engine.start();
   setTimeout(() => {
+    updateDiag();
     if (!engine.ready && !window.crossOriginIsolated) {
       setEngineStatus("error", "エンジン不可（要HTTPS分離）");
       setStatus("エンジンが起動できません。このページがHTTPSで cross-origin isolation 有効になっていないためです");

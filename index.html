@@ -888,7 +888,7 @@ const engine = {
     };
     this.worker.onerror = e => {
       setEngineStatus("error", "エンジン読込エラー");
-      setStatus("エンジンWorkerでエラーが発生しました");
+      setStatus("エンジンWorkerでエラーが発生しました" + (e.message ? ": " + e.message : ""));
     };
     this.worker.postMessage({type:"init"});
   },

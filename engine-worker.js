@@ -5,6 +5,14 @@
 let mod = null;
 let waiters = [];
 
+// 捕捉できない形で落ちた場合も、理由をページ側へ伝える（診断用）
+self.addEventListener("error", (e) => {
+  try { self.postMessage({ type: "error", message: "Worker内エラー: " + (e.message || "不明") }); } catch {}
+});
+self.addEventListener("unhandledrejection", (e) => {
+  try { self.postMessage({ type: "error", message: "Worker内エラー: " + String((e.reason && e.reason.message) || e.reason) }); } catch {}
+});
+
 function checkWaiters(line) {
   const done = waiters.filter(w => line.startsWith(w.prefix));
   waiters = waiters.filter(w => !line.startsWith(w.prefix));
@@ -22,6 +30,9 @@ async function init() {
   ]);
   mod = await YaneuraOu_TsuyouMini({
     locateFile: (path) => "engine/" + path,
+    // 探索スレッド（pthread）側が読み直す本体スクリプトは、既定では
+    // このラッパー自身のURLになってしまい起動に失敗する。実体を明示する。
+    mainScriptUrlOrBlob: new URL("engine/yaneuraou.js", self.location.href).href,
   });
   mod.FS.writeFile("/nn.bin", new Uint8Array(nnBuf));
   mod.FS.writeFile("/progress.bin", new Uint8Array(progBuf));

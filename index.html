@@ -1297,6 +1297,20 @@ $("threadSel").addEventListener("change", () => {
       }
     };
     navigator.serviceWorker.register("sw.js").then(reg => {
+      // 新版SWが有効化されたら1回だけ自動で再読み込みし、旧版の
+      // キャッシュ（特に engine-worker.js）が残り続けるのを防ぐ。
+      reg.addEventListener("updatefound", () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener("statechange", () => {
+          if (nw.state === "activated" && navigator.serviceWorker.controller &&
+              !sessionStorage.getItem("sw-upd")) {
+            sessionStorage.setItem("sw-upd", "1");
+            location.reload();
+          }
+        });
+      });
+      reg.update().catch(() => {});
       if (window.crossOriginIsolated) return;
       if (navigator.serviceWorker.controller) { tryReload(); return; }
       const sw = reg.installing || reg.waiting || reg.active;

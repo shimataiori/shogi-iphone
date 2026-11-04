@@ -194,6 +194,7 @@
   </div>
   <p class="small" id="engineInfo">エンジン: 読込中</p>
   <p class="small" id="diagInfo"></p>
+  <pre id="debugLog" style="font-size:11px; line-height:1.5; background:#faf6ec; border:1px solid #ddd; border-radius:8px; padding:8px; max-height:180px; overflow:auto; white-space:pre-wrap; word-break:break-all;"></pre>
   <p class="small">評価関数: つようら王11mini（SFNN_ka2_4096_8_64_progress8、MIT License、© やねうら王プロジェクト）<br>
   エンジン本体: やねうら王（GPLv3）commit c1b80eaa を WebAssembly 化したもの。</p>
   <p class="small">未実装・制限: 打ち歩詰めの判定なし／着手時の王手・ピン等の完全な合法判定なし（Windows版と同じ）／
@@ -874,7 +875,8 @@ const engine = {
     this.worker = new Worker("engine-worker.js");
     this.worker.onmessage = e => {
       const d = e.data;
-      if (d.type === "line") this.onLine(d.line);
+      if (d.type === "log") appendLog(d.step);
+      else if (d.type === "line") this.onLine(d.line);
       else if (d.type === "ready") {
         this.ready = true;
         setEngineStatus("ready", "エンジン準備完了");
@@ -883,11 +885,13 @@ const engine = {
         setStatus("エンジンの準備ができました");
       } else if (d.type === "error") {
         setEngineStatus("error", "エンジン読込エラー");
+        appendLog("ERROR: " + d.message);
         setStatus("エンジンを読み込めませんでした: " + d.message);
       }
     };
     this.worker.onerror = e => {
       setEngineStatus("error", "エンジン読込エラー");
+      appendLog("worker.onerror: " + (e.message || "(内容なし)") + " @ " + (e.filename || "") + ":" + (e.lineno || ""));
       setStatus("エンジンWorkerでエラーが発生しました" + (e.message ? ": " + e.message : ""));
     };
     this.worker.postMessage({type:"init"});
@@ -938,6 +942,13 @@ const engine = {
 function setEngineStatus(cls, text){
   $("engineStatus").className = cls;
   $("engineStatusText").textContent = text;
+}
+function appendLog(text){
+  const el = $("debugLog");
+  if (!el) return;
+  const lines = (el.textContent + text + "\n").split("\n").slice(-60);
+  el.textContent = lines.join("\n");
+  el.scrollTop = el.scrollHeight;
 }
 function updateDiag(){
   const el = $("diagInfo");
@@ -1297,6 +1308,7 @@ $("threadSel").addEventListener("change", () => {
     navigator.serviceWorker.addEventListener("controllerchange", tryReload);
   }
   updateDiag();
+  appendLog("ページ起動: 分離=" + (window.crossOriginIsolated ? "有効" : "無効") + " / " + navigator.userAgent.slice(0, 90));
   engine.start();
   setTimeout(() => {
     updateDiag();

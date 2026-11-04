@@ -3,7 +3,7 @@
    そのためにはページが cross-origin isolated である必要がある。
    配信サーバが COOP/COEP ヘッダを付けない場合でも、この Service Worker が
    ナビゲーション応答へヘッダを付けて返す（HTTPS配信時のみ有効）。 */
-const CACHE = "shogi-iphone-proto-v4";
+const CACHE = "shogi-iphone-proto-v5";
 const ASSETS = [
   "./",
   "index.html",
@@ -49,5 +49,13 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request)));
+  // Workerスクリプト（engine-worker.js や pthread用 yaneuraou.worker.js）は、
+  // 文書がCOEP有効な場合、スクリプト自の応答にもCOEPヘッダがないと
+  // ブラウザにブロックされ、Workerが評価すらされずにエラーになる。
+  // そのためナビゲーション以外の応答にも分離ヘッダを付けて返す。
+  e.respondWith(
+    caches.match(e.request, { ignoreSearch: true })
+      .then(hit => hit || fetch(e.request))
+      .then(withIsoHeaders)
+  );
 });

@@ -3,7 +3,7 @@
    そのためにはページが cross-origin isolated である必要がある。
    配信サーバが COOP/COEP ヘッダを付けない場合でも、この Service Worker が
    ナビゲーション応答へヘッダを付けて返す（HTTPS配信時のみ有効）。 */
-const CACHE = "shogi-iphone-proto-v8";
+const CACHE = "shogi-iphone-proto-v9";
 const ASSETS = [
   "./",
   "index.html",

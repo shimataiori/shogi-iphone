@@ -27,16 +27,19 @@
   .chip.sel { background:#ffd76e; border-color:#c9a227; }
   .chip.none { color:#aaa; border-style:dashed; }
   #boardWrap { width:min(96vw, 540px); margin:0 auto; }
-  #board { display:grid; grid-template-columns:repeat(9,1fr); background:var(--board-bg);
+  #board { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); background:var(--board-bg);
            border:2px solid var(--line); user-select:none; touch-action:manipulation; }
   .sq { aspect-ratio:1/1; border-right:1px solid var(--line); border-bottom:1px solid var(--line);
-        display:flex; align-items:center; justify-content:center; position:relative; }
+        display:flex; align-items:center; justify-content:center; position:relative;
+        overflow:hidden; min-width:0; }
   .sq:nth-child(9n) { border-right:none; }
   .sq.last { background:#bcd8ff; }
   .sq.sel { background:#ffd76e; }
   .sq.dest::after { content:""; position:absolute; inset:22%; border-radius:50%;
                     background:rgba(47,111,179,.45); }
-  .piece { font-size:clamp(17px, 6.4vw, 34px); line-height:1; font-weight:600; pointer-events:none; }
+  .piece { font-size:clamp(17px, 6.4vw, 34px); line-height:1; font-weight:600; pointer-events:none;
+           white-space:nowrap; }
+  .piece.long { font-size:clamp(11px, 4.0vw, 21px); letter-spacing:-0.06em; }
   .piece.gote { transform:rotate(180deg); }
   .piece.prom { color:#c0272d; }
   .coords { display:flex; justify-content:space-between; font-size:11px; color:#666; padding:0 2px; }
@@ -723,7 +726,8 @@ function renderBoard(){
     const p = pos.board.get(key(f, r));
     if (p) {
       const span = document.createElement("span");
-      span.className = "piece" + (p.owner === "w" ? " gote" : "") + (p.promoted ? " prom" : "");
+      span.className = "piece" + (p.owner === "w" ? " gote" : "") + (p.promoted ? " prom" : "") +
+                       (pieceKanji(p).length >= 2 ? " long" : "");
       span.textContent = pieceKanji(p);
       if (flipped) span.style.transform = p.owner === "w" ? "rotate(0deg)" : "rotate(180deg)";
       div.appendChild(span);

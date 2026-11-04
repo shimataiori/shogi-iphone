@@ -97,6 +97,24 @@
 </div>
 
 <section class="card">
+  <h2>自由対局</h2>
+  <div class="row">
+    <button id="engineMoveBtn">エンジンに1手指させる</button>
+    <label>AIの担当 <select id="aiSide">
+      <option value="w" selected>AIは後手</option><option value="b">AIは先手</option>
+      <option value="both">AI同士</option>
+    </select></label>
+    <label class="switch"><input type="checkbox" id="autoReply"> AI自動応手</label>
+  </div>
+  <div class="row">
+    <button id="aiVsAiBtn">AI同士で対局開始</button>
+    <button id="aiStopBtn">停止</button>
+    <label>最大手数 <input type="number" id="aiMax" value="256" min="2" max="2000" style="width:76px;"></label>
+    <label>間隔(秒) <input type="number" id="aiInterval" value="2" min="0" max="15" step="0.5" style="width:64px;"></label>
+  </div>
+</section>
+
+<section class="card">
   <h2>棋譜・分岐 <small>本筋は1列目、分岐は分かれた行から右の列へ</small></h2>
   <div id="kifuScroll"><div id="kifuInner"></div></div>
 </section>
@@ -126,23 +144,6 @@
   </div>
 </section>
 
-<section class="card">
-  <h2>自由対局</h2>
-  <div class="row">
-    <button id="engineMoveBtn">エンジンに1手指させる</button>
-    <label>AIの担当 <select id="aiSide">
-      <option value="w" selected>AIは後手</option><option value="b">AIは先手</option>
-      <option value="both">AI同士</option>
-    </select></label>
-    <label class="switch"><input type="checkbox" id="autoReply"> AI自動応手</label>
-  </div>
-  <div class="row">
-    <button id="aiVsAiBtn">AI同士で対局開始</button>
-    <button id="aiStopBtn">停止</button>
-    <label>最大手数 <input type="number" id="aiMax" value="256" min="2" max="2000" style="width:76px;"></label>
-    <label>間隔(秒) <input type="number" id="aiInterval" value="2" min="0" max="15" step="0.5" style="width:64px;"></label>
-  </div>
-</section>
 
 <section class="card">
   <h2>指定手順・手順入力</h2>

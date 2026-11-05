@@ -3,7 +3,7 @@
    そのためにはページが cross-origin isolated である必要がある。
    配信サーバが COOP/COEP ヘッダを付けない場合でも、この Service Worker が
    ナビゲーション応答へヘッダを付けて返す（HTTPS配信時のみ有効）。 */
-const CACHE = "shogi-iphone-proto-v10";
+const CACHE = "shogi-iphone-proto-v12";
 const ASSETS = [
   "./",
   "index.html",
@@ -14,6 +14,11 @@ const ASSETS = [
   "engine/yaneuraou.worker.js",
   "engine/eval/nn.bin",
   "engine/eval/progress.bin",
+  "engine-micro/yaneuraou.js",
+  "engine-micro/yaneuraou.wasm",
+  "engine-micro/yaneuraou.worker.js",
+  "engine-micro/eval/nn.bin",
+  "engine-micro/eval/progress.bin",
 ];
 self.addEventListener("install", (e) => {
   // 1ファイルの取得失敗でインストール全体が失敗しないよう、個別にキャッシュする。

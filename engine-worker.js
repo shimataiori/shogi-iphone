@@ -34,27 +34,31 @@ function waitFor(prefix, timeoutMs) {
   });
 }
 
-async function init() {
-  log("w0: worker起動。分離=" + self.crossOriginIsolated + " / SAB=" + (typeof SharedArrayBuffer !== "undefined"));
-  try { importScripts("engine/yaneuraou.js"); }
+async function init(variant) {
+  // 評価関数は構造（ネットワークサイズ）がエンジンのビルドに固定されるため、
+  // mini / micro は別ビルドのエンジン一式をフォルダごと切り替える。
+  const dir = variant === "micro" ? "engine-micro" : "engine";
+  const factoryName = variant === "micro" ? "YaneuraOu_TsuyouMicro" : "YaneuraOu_TsuyouMini";
+  log("w0: worker起動。評価関数=" + variant + " / 分離=" + self.crossOriginIsolated + " / SAB=" + (typeof SharedArrayBuffer !== "undefined"));
+  try { importScripts(dir + "/yaneuraou.js"); }
   catch (e) { fail("w1 importScripts", e); return; }
-  log("w1: エンジン本体JS 読込OK（factory型=" + typeof YaneuraOu_TsuyouMini + "）");
+  log("w1: エンジン本体JS 読込OK（factory型=" + typeof self[factoryName] + "）");
 
   let nnBuf, progBuf;
   try {
     [nnBuf, progBuf] = await Promise.all([
-      fetch("engine/eval/nn.bin").then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); }),
-      fetch("engine/eval/progress.bin").then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); }),
+      fetch(dir + "/eval/nn.bin").then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); }),
+      fetch(dir + "/eval/progress.bin").then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); }),
     ]);
   } catch (e) { fail("w2 評価関数fetch", e); return; }
   log("w2: 評価関数 取得OK（nn=" + nnBuf.byteLength + "B / progress=" + progBuf.byteLength + "B）");
 
   try {
-    mod = await YaneuraOu_TsuyouMini({
-      locateFile: (path) => "engine/" + path,
+    mod = await self[factoryName]({
+      locateFile: (path) => dir + "/" + path,
       // 探索スレッド（pthread）側が読み直す本体スクリプトは、既定では
       // このラッパー自身のURLになってしまい起動に失敗する。実体を明示する。
-      mainScriptUrlOrBlob: new URL("engine/yaneuraou.js", self.location.href).href,
+      mainScriptUrlOrBlob: new URL(dir + "/yaneuraou.js", self.location.href).href,
       print: (line) => log("engine-out: " + line),
       printErr: (line) => log("engine-err: " + line),
       onAbort: (what) => log("engine-abort: " + String(what).slice(0, 300)),
@@ -100,7 +104,7 @@ async function init() {
 self.onmessage = async (e) => {
   const d = e.data || {};
   if (d.type === "init") {
-    try { await init(); }
+    try { await init(d.variant); }
     catch (err) { fail("init全般", err); }
   } else if (d.type === "command") {
     if (mod) mod.postMessage(d.line);

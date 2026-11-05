@@ -119,7 +119,7 @@
 </section>
 
 <section class="card">
-  <h2>解析 <small>やねうら王 + つようら王11mini（端末内）</small></h2>
+  <h2>解析 <small>やねうら王 + <span id="evalNameLabel">つようら王11mini</span>（端末内）</small></h2>
   <div class="row">
     <label>思考 <select id="thinkMode">
       <option value="time" selected>時間</option><option value="depth">深さ</option>
@@ -194,12 +194,16 @@
     <label>探索スレッド <select id="threadSel">
       <option value="1">1</option><option value="2" selected>2</option><option value="4">4</option>
     </select></label>
+    <label>評価関数 <select id="evalSel">
+      <option value="mini">つようら王11mini</option><option value="micro">つようら王11micro</option>
+    </select></label>
   </div>
   <p class="small" id="engineInfo">エンジン: 読込中</p>
   <p class="small" id="diagInfo"></p>
   <pre id="debugLog" style="font-size:11px; line-height:1.5; background:#faf6ec; border:1px solid #ddd; border-radius:8px; padding:8px; max-height:180px; overflow:auto; white-space:pre-wrap; word-break:break-all;"></pre>
-  <p class="small">評価関数: つようら王11mini（SFNN_ka2_4096_8_64_progress8、MIT License、© やねうら王プロジェクト）<br>
-  エンジン本体: やねうら王（GPLv3）commit c1b80eaa を WebAssembly 化したもの。</p>
+  <p class="small">評価関数: つようら王11mini（SFNN_ka2_4096_8_64_progress8）／11micro（SFNN_ka2_2048_8_64_progress8）、
+  どちらも MIT License、© やねうら王プロジェクト。上の「評価関数」で切り替えできます（切り替え時はエンジンが再起動します）。<br>
+  エンジン本体: やねうら王（GPLv3）commit c1b80eaa を WebAssembly 化したもの（評価関数の構造ごとに別ビルド）。</p>
   <p class="small">未実装・制限: 打ち歩詰めの判定なし／着手時の王手・ピン等の完全な合法判定なし（Windows版と同じ）／
   千日手の判定なし／エンジンの動作には SharedArrayBuffer（cross-origin isolation）が必要なため、
   HTTPSで配信されたページでのみ動作します／オフライン起動もHTTPS配信時のみ（Service Worker）。</p>
@@ -639,7 +643,7 @@ const PRESETS = {
   "矢倉（入り口）": ["7g7f","8c8d","6i7h","8d8e","7i6h","3c3d"],
   "四間飛車（入り口）": ["7g7f","3c3d","6g6f","8c8d","2h6h","8d8e"],
   "中飛車（入り口）": ["7g7f","3c3d","5g5f","8c8d","2h5h","8d8e"],
-  "相掛かり（入り口）": ["7g7f","8c8d","2g2f","8d8e","2f2e","8e8f","2e2d","8f8g+"],
+  "相掛かり（入り口）": ["2g2f","8c8d","2f2e","8d8e","6i7h","4a3b","2e2d","2c2d","2h2d"],
 };
 const START_LABEL = "開始局面";
 let startSfen = STARTPOS_SFEN;
@@ -868,6 +872,10 @@ $("navNext").addEventListener("click", () => { if (current.children.length) jump
 $("navEnd").addEventListener("click", () => { let n = current; while (n.children.length) n = n.children[0]; jumpTo(n); });
 
 /* ================= エンジン（Web Worker + WASM） ================= */
+const EVAL_LABELS = { mini: "つようら王11mini", micro: "つようら王11micro" };
+function currentEvalVariant(){
+  return localStorage.getItem("shogi-iphone-proto:eval") === "micro" ? "micro" : "mini";
+}
 const engine = {
   worker: null, ready: false, idName: "", search: null,
   start(){
@@ -884,7 +892,7 @@ const engine = {
         this.ready = true;
         setEngineStatus("ready", "エンジン準備完了");
         $("engineInfo").textContent = "エンジン: " + (this.idName || "YaneuraOu") +
-          " / 評価関数: つようら王11mini";
+          " / 評価関数: " + EVAL_LABELS[currentEvalVariant()];
         setStatus("エンジンの準備ができました");
       } else if (d.type === "error") {
         setEngineStatus("error", "エンジン読込エラー");
@@ -897,7 +905,7 @@ const engine = {
       appendLog("worker.onerror: " + (e.message || "(内容なし)") + " @ " + (e.filename || "") + ":" + (e.lineno || ""));
       setStatus("エンジンWorkerでエラーが発生しました" + (e.message ? ": " + e.message : ""));
     };
-    this.worker.postMessage({type:"init"});
+    this.worker.postMessage({type:"init", variant: currentEvalVariant()});
   },
   stopAiOnly(){ if (aiVsAiTimer) stopAiVsAi(); },
   onLine(line){
@@ -1231,12 +1239,22 @@ function renderSessionList(){
     const btns = document.createElement("span");
     const open = document.createElement("button"); open.textContent = "開く";
     open.addEventListener("click", () => { loadSessionData(all[name]); persistSession(); setStatus("「" + name + "」を開きました"); });
+    const ren = document.createElement("button"); ren.textContent = "名前変更";
+    ren.addEventListener("click", () => {
+      const newName = prompt("新しい名前", name);
+      if (!newName || newName === name) return;
+      const a = namedSessions();
+      if (a[newName] && !confirm("「" + newName + "」は既にあります。上書きしますか？")) return;
+      a[newName] = a[name]; delete a[name];
+      localStorage.setItem(LS_NAMED, JSON.stringify(a)); renderSessionList();
+      setStatus("「" + name + "」を「" + newName + "」に変更しました");
+    });
     const del = document.createElement("button"); del.textContent = "削除";
     del.addEventListener("click", () => {
       const a = namedSessions(); delete a[name];
       localStorage.setItem(LS_NAMED, JSON.stringify(a)); renderSessionList();
     });
-    btns.append(open, " ", del);
+    btns.append(open, " ", ren, " ", del);
     row.append(label, btns);
     el.appendChild(row);
   }
@@ -1270,6 +1288,15 @@ $("threadSel").addEventListener("change", () => {
     engine.send("setoption name Threads value " + $("threadSel").value);
     setStatus("探索スレッドを " + $("threadSel").value + " に設定しました");
   }
+});
+$("evalSel").value = currentEvalVariant();
+$("evalNameLabel").textContent = EVAL_LABELS[currentEvalVariant()];
+$("evalSel").addEventListener("change", () => {
+  const v = $("evalSel").value === "micro" ? "micro" : "mini";
+  localStorage.setItem("shogi-iphone-proto:eval", v);
+  $("evalNameLabel").textContent = EVAL_LABELS[v];
+  setStatus("評価関数を " + EVAL_LABELS[v] + " に切り替えます（エンジン再起動）");
+  engine.start();
 });
 
 /* ================= 起動 ================= */
